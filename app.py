@@ -1,80 +1,184 @@
 import streamlit as st
-from triage_engine import triage
-from PIL import Image
 import pandas as pd
 import joblib
+from PIL import Image
 
+from triage_engine import triage
 
 st.set_page_config(page_title="HealthMate AI – Demo", page_icon="🩺", layout="centered")
 
-# --- Simple localization (MVP: demo only) ---
+# -----------------------------
+# THEME / STYLING (HealthMate palette)
+# -----------------------------
+st.markdown("""
+<style>
+/* App background */
+.main {
+    background-color: #F8FAFC;
+}
+
+/* Hide Streamlit default menu/footer if you want (optional) */
+/*
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+*/
+
+.header {
+    background: linear-gradient(90deg, #0E8F8B, #0E8F8B);
+    padding: 1.3rem 1.4rem;
+    border-radius: 14px;
+    color: white;
+    margin-bottom: 1.2rem;
+    border: 1px solid rgba(255,255,255,0.10);
+}
+
+.header h1 {
+    color: white;
+    margin: 0;
+    line-height: 1.1;
+}
+
+.header p {
+    color: #E6FFFA;
+    margin-top: 0.35rem;
+    margin-bottom: 0;
+    font-size: 1rem;
+}
+
+/* Make labels a bit clearer */
+label, .stMarkdown, .stTextArea, .stSelectbox, .stNumberInput {
+    color: #0F172A;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# -----------------------------
+# Localization (Demo)
+# -----------------------------
 LANG = {
     "English": {
-        "title": "🩺 HealthMate AI (Demo)",
+        "title": "HealthMate AI",
         "subtitle": "AI-powered symptom triage for low-resource settings (prototype)",
         "symptoms": "Describe your symptoms (text)",
+        "symptoms_help": "Example: fever, headache, vomiting, cough, body weakness…",
         "age": "Age",
         "sex": "Sex",
         "pregnant": "Pregnant?",
         "followup": "Quick follow-up questions (tick what applies)",
-        "run": "Get Guidance",
+        "run": "🩺 Get Health Guidance",
         "result": "Result",
         "triage_level": "Triage level",
         "why": "Why this recommendation",
         "next": "What to do next",
         "facilities": "Suggested places to seek care (demo)",
         "disclaimer": "Safety notes",
+        "reset": "🔄 Start New Case",
+        "ml_title": "ML model prediction (trained on real dataset)",
+        "ml_label": "Most likely condition label (dataset)"
     },
     "Luganda (demo)": {
-        "title": "🩺 HealthMate AI (Ekigezo)",
-        "subtitle": "Okulambika obulwadde + okusalawo obwangu (prototype)",
+        "title": "HealthMate AI (Ekigezo)",
+        "subtitle": "AI-powered symptom triage for low-resource settings (prototype)",
         "symptoms": "Nyumya obubonero bwo (text)",
+        "symptoms_help": "Okugeza: omusujja, okulumwa omutwe, okusesema, okukohola…",
         "age": "Emyaka",
         "sex": "Omusajja/Omukazi",
         "pregnant": "Olina olubuto?",
-        "followup": "Ebibuuzo eby’okugoberera (londa ebikukwatako)",
-        "run": "Funa Obulagirizi",
+        "followup": "Ebibuuzo eby’okugoberera",
+        "run": "🩺 Funa Obulagirizi",
         "result": "Ebisubizo",
         "triage_level": "Eddaala ly’obulabe",
         "why": "Lwaki tusazeewo bwe tutyo",
         "next": "Kiki ky’olina okukola",
         "facilities": "W’oyinza okugenda (demo)",
-        "disclaimer": "Obukuumi / Okulabula",
+        "disclaimer": "Okulabula",
+        "reset": "🔄 Tandika omusango omupya",
+        "ml_title": "Ekiragiro kya ML (trained on real dataset)",
+        "ml_label": "Ekizinga okukwatagana (dataset label)"
     },
     "Swahili (demo)": {
-    "title": "🩺 HealthMate AI (Onyesho)",
-    "subtitle": "AI-powered symptom triage for low-resource settings (prototype)",
-    "symptoms": "Eleza dalili zako (maandishi)",
-    "age": "Umri",
-    "sex": "Jinsia",
-    "pregnant": "Mjamzito?",
-    "followup": "Maswali ya haraka ya kufuatilia",
-    "run": "Pata Mwongozo",
-    "result": "Matokeo",
-    "triage_level": "Kiwango cha hatari",
-    "why": "Kwa nini mapendekezo haya",
-    "next": "Hatua zinazofuata",
-    "facilities": "Mahali pa kupata huduma (demo)",
-    "disclaimer": "Tahadhari za usalama",
+        "title": "HealthMate AI (Onyesho)",
+        "subtitle": "AI-powered symptom triage for low-resource settings (prototype)",
+        "symptoms": "Eleza dalili zako (maandishi)",
+        "symptoms_help": "Mfano: homa, maumivu ya kichwa, kutapika, kikohozi…",
+        "age": "Umri",
+        "sex": "Jinsia",
+        "pregnant": "Mjamzito?",
+        "followup": "Maswali ya haraka ya kufuatilia",
+        "run": "🩺 Pata Mwongozo",
+        "result": "Matokeo",
+        "triage_level": "Kiwango cha hatari",
+        "why": "Kwa nini mapendekezo haya",
+        "next": "Hatua zinazofuata",
+        "facilities": "Mahali pa kupata huduma (demo)",
+        "disclaimer": "Tahadhari za usalama",
+        "reset": "🔄 Anza kesi mpya",
+        "ml_title": "Utabiri wa ML (trained on real dataset)",
+        "ml_label": "Lebo inayowezekana (dataset label)"
     },
     "Runyankole/Rukiga (demo)": {
-    "title": "🩺 HealthMate AI (Okworeka)",
-    "subtitle": "AI-powered symptom triage for low-resource settings (prototype)",
-    "symptoms": "Shoboorora obubonero bwawe (ebigambo)",
-    "age": "Emyaka",
-    "sex": "Omusheijja/Omukazi",
-    "pregnant": "Oyine'nda?",
-    "followup": "Ebibuuzo by'okugyendera",
-    "run": "Tuna Oburagirizi",
-    "result": "Ebisubizo",
-    "triage_level": "Eshonga y'obuhunga",
-    "why": "Ekiragiro ky'ekyo",
-    "next": "Eki orikukora",
-    "facilities": "Aho orikubaasa kugenda (demo)",
-    "disclaimer": "Okwegyendesereza",
+        "title": "HealthMate AI (Ekishushani)",
+        "subtitle": "AI-powered symptom triage for low-resource settings (prototype)",
+        "symptoms": "Shoboorora obubonero bwawe (ebigambo)",
+        "symptoms_help": "Okugyeza: omuswijja, okurumwa omutwe, okutanaka, okukorora…",
+        "age": "Emyaka",
+        "sex": "Omushaijja/Omukazi",
+        "pregnant": "Oyine'nda?",
+        "followup": "Ebibuuzo by’okugyendera",
+        "run": "🩺 Tunga Oburagirizi",
+        "result": "Ebisubizo",
+        "triage_level": "Eshonga y’obuhunga",
+        "why": "Ekiragiro ky’ekyo",
+        "next": "Eki orikukora",
+        "facilities": "Aho orikubaasa kugenda (demo)",
+        "disclaimer": "Okwegyendesereza",
+        "reset": "🔄 Tandika omusango omupya",
+        "ml_title": "Ekiragiro kya ML (trained on real dataset)",
+        "ml_label": "Ekirango ekirikukwatagana (dataset label)"
     }
 }
 
+# -----------------------------
+# Sidebar
+# -----------------------------
+st.sidebar.title("Settings")
+language = st.sidebar.selectbox(
+    "Language",
+    ["English", "Luganda (demo)", "Swahili (demo)", "Runyankole/Rukiga (demo)"]
+)
+T = LANG[language]
+
+st.sidebar.markdown("### 🩺 About HealthMate AI")
+st.sidebar.write(
+    "HealthMate AI is a safety-first, AI-powered symptom triage assistant "
+    "designed for low-resource and low-bandwidth settings."
+)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### ⚠️ Medical Disclaimer")
+st.sidebar.caption(
+    "This tool provides general guidance and triage support only. "
+    "It does not diagnose and does not replace a healthcare professional."
+)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🌍 Supported Languages (Demo)")
+st.sidebar.caption("• English\n• Luganda\n• Swahili\n• Runyankole/Rukiga")
+
+st.sidebar.markdown("---")
+with st.sidebar.expander("🛣️ Roadmap"):
+    st.write(
+        "- Stronger local-language NLP\n"
+        "- Low-bandwidth optimization\n"
+        "- SMS/USSD access for feature phones\n"
+        "- Facility referral mapping\n"
+        "- Clinical validation studies"
+    )
+
+# -----------------------------
+# Model loading + symptom feature conversion
+# -----------------------------
 @st.cache_resource
 def load_model():
     payload = joblib.load("model.joblib")
@@ -82,9 +186,8 @@ def load_model():
 
 def symptoms_to_features(symptom_text: str, feature_columns):
     """
-    Very simple symptom extractor:
-    - If a feature name appears in the user's text, mark it 1 else 0
-    Dataset features look like: 'itching', 'skin_rash', 'vomiting', etc.
+    Simple symptom extractor:
+    If a symptom feature name appears in user text, mark it 1 else 0.
     """
     text = (symptom_text or "").lower()
     row = {c: 0 for c in feature_columns}
@@ -94,22 +197,24 @@ def symptoms_to_features(symptom_text: str, feature_columns):
             row[c] = 1
     return pd.DataFrame([row])
 
-# --- UI ---
-st.sidebar.title("Settings")
-language = st.sidebar.selectbox(
-    "Language",
-    ["English", "Luganda (demo)", "Swahili (demo)", "Runyankole/Rukiga (demo)"]
-)
-T = LANG[language]
+# -----------------------------
+# Header with logo
+# -----------------------------
+col_logo, col_head = st.columns([1, 4])
+with col_logo:
+    try:
+        logo = Image.open("logo.png")
+        st.image(logo, width=110)
+    except:
+        pass
 
-try:
-    logo = Image.open("logo.jpg")
-    st.image(logo, width=120)
-except:
-    pass
-
-st.title(T["title"])
-st.caption(T["subtitle"])
+with col_head:
+    st.markdown(f"""
+    <div class="header">
+      <h1>{T["title"]}</h1>
+      <p>{T["subtitle"]}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 with st.expander("Demo note (for judges)", expanded=False):
     st.write(
@@ -119,8 +224,11 @@ with st.expander("Demo note (for judges)", expanded=False):
         "Designed for low bandwidth and future SMS/USSD support."
     )
 
+# -----------------------------
+# Inputs
+# -----------------------------
+symptom_text = st.text_area(T["symptoms"], placeholder=T["symptoms_help"])
 
-symptom_text = st.text_area(T["symptoms"], placeholder="e.g., I have fever and headache for 2 days, body weakness...")
 col1, col2, col3 = st.columns(3)
 age = col1.number_input(T["age"], min_value=0, max_value=120, value=28, step=1)
 sex = col2.selectbox(T["sex"], ["Male", "Female"])
@@ -128,7 +236,7 @@ pregnant = False
 if sex == "Female":
     pregnant = col3.checkbox(T["pregnant"], value=False)
 else:
-    col3.write("")  # spacer
+    col3.write("")
 
 st.subheader(T["followup"])
 c1, c2 = st.columns(2)
@@ -149,34 +257,34 @@ answers["unable_to_drink"] = c2.checkbox("Unable to drink/keep fluids down")
 
 st.divider()
 
+# -----------------------------
+# Run inference + show results
+# -----------------------------
 if st.button(T["run"], type="primary"):
     if not symptom_text.strip():
         st.warning("Please describe symptoms first.")
     else:
-        # --- ML Prediction ---
+        # ML prediction
         model, feature_columns = load_model()
         X_user = symptoms_to_features(symptom_text, feature_columns)
         pred = model.predict(X_user)[0]
 
-        st.subheader("ML model prediction (trained on real dataset)")
-        st.write(f"**Most likely condition label (dataset):** {pred}")
+        st.subheader(T["ml_title"])
+        st.write(f"**{T['ml_label']}:** {pred}")
 
-        # --- Triage Engine ---
+        # Safety-first triage
         res = triage(symptom_text=symptom_text, age=int(age), sex=sex, pregnant=pregnant, answers=answers)
-
-        # --- Display results ---
-
 
         st.subheader(T["result"])
         st.metric(T["triage_level"], res.title)
 
-        # Add visual emphasis
+        # Color-coded clinical feedback
         if res.level == "URGENT":
-            st.error("⚠️ Urgent triage triggered")
+            st.error("🔴 Urgent: Seek care immediately")
         elif res.level == "CLINIC":
-            st.warning("⏱️ Clinic review recommended")
+            st.warning("🟠 Clinic visit recommended within 24–48 hours")
         else:
-            st.success("✅ Home care guidance")
+            st.success("🟢 Home care and monitoring advised")
 
         st.markdown(f"### {T['why']}")
         for r in res.reasons:
@@ -194,4 +302,8 @@ if st.button(T["run"], type="primary"):
         for d in res.disclaimers:
             st.caption("• " + d)
 
-        st.info("Tip for demo: try a 'danger sign' like chest pain + difficulty breathing to see URGENT triage.")
+        # Reset button (useful in demos)
+        if st.button(T["reset"]):
+            st.rerun()
+
+        st.info("Tip for demo: try 'chest tightness + difficulty breathing' to trigger urgent triage.")
