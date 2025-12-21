@@ -1,57 +1,79 @@
 import streamlit as st
 import pandas as pd
 import joblib
-from PIL import Image
+import base64
 
 from triage_engine import triage
 
+# -----------------------------
+# PAGE CONFIG
+# -----------------------------
 st.set_page_config(page_title="HealthMate AI – Demo", page_icon="🩺", layout="centered")
 
+
 # -----------------------------
-# THEME / STYLING (HealthMate palette)
+# LOGO (Base64) – required for HTML header img
+# -----------------------------
+def get_base64_of_bin_file(bin_file):
+    with open(bin_file, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+if "LOGO_B64" not in st.session_state:
+    try:
+        st.session_state["LOGO_B64"] = get_base64_of_bin_file("logo.png")
+    except:
+        st.session_state["LOGO_B64"] = ""
+
+
+# -----------------------------
+# STYLING (HealthMate palette)
 # -----------------------------
 st.markdown("""
 <style>
-/* App background */
-.main {
+/* Whole app background */
+.stApp {
     background-color: #F8FAFC;
 }
+[data-testid="stAppViewContainer"] {
+    background-color: #F8FAFC;
+}
+[data-testid="stHeader"] {
+    background: rgba(0,0,0,0);
+}
 
-/* Hide Streamlit default menu/footer if you want (optional) */
-/*
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
-*/
-
-.header {
+/* HealthMate Header band */
+.hm-header {
     background: linear-gradient(90deg, #0E8F8B, #0E8F8B);
-    padding: 1.3rem 1.4rem;
+    padding: 1.1rem 1.2rem;
     border-radius: 14px;
     color: white;
     margin-bottom: 1.2rem;
     border: 1px solid rgba(255,255,255,0.10);
 }
 
-.header h1 {
+.hm-header h1 {
     color: white;
     margin: 0;
     line-height: 1.1;
+    font-size: 2rem;
+    font-weight: 700;
 }
 
-.header p {
+.hm-header p {
     color: #E6FFFA;
     margin-top: 0.35rem;
     margin-bottom: 0;
     font-size: 1rem;
 }
 
-/* Make labels a bit clearer */
+/* Improve readability */
 label, .stMarkdown, .stTextArea, .stSelectbox, .stNumberInput {
-    color: #0F172A;
+    color: #0F172A !important;
 }
 </style>
 """, unsafe_allow_html=True)
+
 
 # -----------------------------
 # Localization (Demo)
@@ -75,7 +97,11 @@ LANG = {
         "disclaimer": "Safety notes",
         "reset": "🔄 Start New Case",
         "ml_title": "ML model prediction (trained on real dataset)",
-        "ml_label": "Most likely condition label (dataset)"
+        "ml_label": "Most likely condition label (dataset)",
+        "demo_cases": "🎯 Quick Demo Cases",
+        "demo_mild": "Mild (Home care)",
+        "demo_mod": "Moderate (Clinic)",
+        "demo_sev": "Severe (Urgent)",
     },
     "Luganda (demo)": {
         "title": "HealthMate AI (Ekigezo)",
@@ -95,7 +121,11 @@ LANG = {
         "disclaimer": "Okulabula",
         "reset": "🔄 Tandika omusango omupya",
         "ml_title": "Ekiragiro kya ML (trained on real dataset)",
-        "ml_label": "Ekizinga okukwatagana (dataset label)"
+        "ml_label": "Ekizinga okukwatagana (dataset label)",
+        "demo_cases": "🎯 Eby’okugezesa",
+        "demo_mild": "Kyangu (Ewaka)",
+        "demo_mod": "Ky’omu (Ddwaaliro)",
+        "demo_sev": "Kizito (Mangu)",
     },
     "Swahili (demo)": {
         "title": "HealthMate AI (Onyesho)",
@@ -115,16 +145,20 @@ LANG = {
         "disclaimer": "Tahadhari za usalama",
         "reset": "🔄 Anza kesi mpya",
         "ml_title": "Utabiri wa ML (trained on real dataset)",
-        "ml_label": "Lebo inayowezekana (dataset label)"
+        "ml_label": "Lebo inayowezekana (dataset label)",
+        "demo_cases": "🎯 Mifano ya Haraka",
+        "demo_mild": "Nyepesi (Nyumbani)",
+        "demo_mod": "Wastani (Kliniki)",
+        "demo_sev": "Hatari (Dharura)",
     },
     "Runyankole/Rukiga (demo)": {
-        "title": "HealthMate AI (Ekishushani)",
+        "title": "HealthMate AI (Okworeka)",
         "subtitle": "AI-powered symptom triage for low-resource settings (prototype)",
         "symptoms": "Shoboorora obubonero bwawe (ebigambo)",
-        "symptoms_help": "Okugyeza: omuswijja, okurumwa omutwe, okutanaka, okukorora…",
+        "symptoms_help": "Okugeza: omuswijja, okuruma omutwe, okusesema, okukohola…",
         "age": "Emyaka",
         "sex": "Omushaijja/Omukazi",
-        "pregnant": "Oyine'nda?",
+        "pregnant": "Olina olubuto?",
         "followup": "Ebibuuzo by’okugyendera",
         "run": "🩺 Tunga Oburagirizi",
         "result": "Ebisubizo",
@@ -135,9 +169,14 @@ LANG = {
         "disclaimer": "Okwegyendesereza",
         "reset": "🔄 Tandika omusango omupya",
         "ml_title": "Ekiragiro kya ML (trained on real dataset)",
-        "ml_label": "Ekirango ekirikukwatagana (dataset label)"
+        "ml_label": "Ekirango ekirikukwatagana (dataset label)",
+        "demo_cases": "🎯 Eby’okugezesaho",
+        "demo_mild": "Kyangu (Ewaka)",
+        "demo_mod": "Ky’omu (Kiliniki)",
+        "demo_sev": "Kizito (Emergensi)",
     }
 }
+
 
 # -----------------------------
 # Sidebar
@@ -176,6 +215,7 @@ with st.sidebar.expander("🛣️ Roadmap"):
         "- Clinical validation studies"
     )
 
+
 # -----------------------------
 # Model loading + symptom feature conversion
 # -----------------------------
@@ -185,10 +225,6 @@ def load_model():
     return payload["model"], payload["feature_columns"]
 
 def symptoms_to_features(symptom_text: str, feature_columns):
-    """
-    Simple symptom extractor:
-    If a symptom feature name appears in user text, mark it 1 else 0.
-    """
     text = (symptom_text or "").lower()
     row = {c: 0 for c in feature_columns}
     for c in feature_columns:
@@ -197,25 +233,26 @@ def symptoms_to_features(symptom_text: str, feature_columns):
             row[c] = 1
     return pd.DataFrame([row])
 
-# -----------------------------
-# Header with logo
-# -----------------------------
-col_logo, col_head = st.columns([1, 4])
-with col_logo:
-    try:
-        logo = Image.open("logo.png")
-        st.image(logo, width=110)
-    except:
-        pass
 
-with col_head:
-    st.markdown(f"""
-    <div class="header">
-      <h1>{T["title"]}</h1>
-      <p>{T["subtitle"]}</p>
-    </div>
-    """, unsafe_allow_html=True)
+# -----------------------------
+# Header (Logo inside teal band)
+# -----------------------------
+st.markdown(f"""
+<div class="hm-header" style="display:flex; align-items:center; gap:16px;">
+  <div style="background:white; padding:10px; border-radius:12px;">
+    <img src="data:image/png;base64,{st.session_state.get('LOGO_B64','')}" width="90" />
+  </div>
+  <div>
+    <h1 style="margin:0;">{T["title"]}</h1>
+    <p style="margin:0.35rem 0 0 0;">{T["subtitle"]}</p>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
+
+# -----------------------------
+# Demo note
+# -----------------------------
 with st.expander("Demo note (for judges)", expanded=False):
     st.write(
         "This is a prototype demonstrating end-to-end triage guidance using sample inputs. "
@@ -224,10 +261,29 @@ with st.expander("Demo note (for judges)", expanded=False):
         "Designed for low bandwidth and future SMS/USSD support."
     )
 
+
+# -----------------------------
+# Demo preset buttons (optional but highly recommended)
+# -----------------------------
+st.markdown(f"### {T['demo_cases']}")
+cA, cB, cC = st.columns(3)
+
+if cA.button(T["demo_mild"], use_container_width=True):
+    st.session_state["symptoms"] = "mild headache and fever since yesterday"
+if cB.button(T["demo_mod"], use_container_width=True):
+    st.session_state["symptoms"] = "fever and vomiting for four days"
+if cC.button(T["demo_sev"], use_container_width=True):
+    st.session_state["symptoms"] = "chest tightness and difficulty breathing"
+
+
 # -----------------------------
 # Inputs
 # -----------------------------
-symptom_text = st.text_area(T["symptoms"], placeholder=T["symptoms_help"])
+symptom_text = st.text_area(
+    T["symptoms"],
+    value=st.session_state.get("symptoms", ""),
+    placeholder=T["symptoms_help"]
+)
 
 col1, col2, col3 = st.columns(3)
 age = col1.number_input(T["age"], min_value=0, max_value=120, value=28, step=1)
@@ -257,10 +313,11 @@ answers["unable_to_drink"] = c2.checkbox("Unable to drink/keep fluids down")
 
 st.divider()
 
+
 # -----------------------------
 # Run inference + show results
 # -----------------------------
-if st.button(T["run"], type="primary"):
+if st.button(T["run"], type="primary", use_container_width=True):
     if not symptom_text.strip():
         st.warning("Please describe symptoms first.")
     else:
@@ -302,8 +359,9 @@ if st.button(T["run"], type="primary"):
         for d in res.disclaimers:
             st.caption("• " + d)
 
-        # Reset button (useful in demos)
-        if st.button(T["reset"]):
+        # Reset button
+        if st.button(T["reset"], use_container_width=True):
+            st.session_state["symptoms"] = ""
             st.rerun()
 
-        st.info("Tip for demo: try 'chest tightness + difficulty breathing' to trigger urgent triage.")
+        st.info("Tip for demo: Try 'chest tightness + difficulty breathing' to trigger urgent triage.")
