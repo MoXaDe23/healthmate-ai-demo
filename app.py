@@ -5,6 +5,8 @@ import base64
 
 from triage_engine import triage
 
+# rebuild-trigger-1
+
 # -----------------------------
 # PAGE CONFIG
 # -----------------------------
@@ -365,3 +367,4 @@ if st.button(T["run"], type="primary", use_container_width=True):
             st.rerun()
 
         st.info("Tip for demo: Try 'chest tightness + difficulty breathing' to trigger urgent triage.")
+
