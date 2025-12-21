@@ -263,6 +263,14 @@ with st.expander("Demo note (for judges)", expanded=False):
         "Designed for low bandwidth and future SMS/USSD support."
     )
 
+with st.expander("Model info (demo)", expanded=False):
+    st.write("**Model type:** Supervised ML classifier (prototype baseline)")
+    st.write("**Dataset:** Public symptom–disease dataset (Kaggle) – used for demonstration")
+    st.write("**Features:** 132 symptom indicators")
+    st.write("**Quick internal validation (prototype check):** ~1.00 on a simple split")
+    st.caption("Note: This score reflects performance on a clean public dataset and does not equal clinical accuracy.")
+    st.write("**Important:** Not a diagnostic tool; not clinically validated.")
+    st.write("**Next:** cross-validation, external datasets, clinical evaluation, and regulatory alignment.")
 
 # -----------------------------
 # Demo preset buttons (optional but highly recommended)
@@ -367,4 +375,5 @@ if st.button(T["run"], type="primary", use_container_width=True):
             st.rerun()
 
         st.info("Tip for demo: Try 'chest tightness + difficulty breathing' to trigger urgent triage.")
+
 
